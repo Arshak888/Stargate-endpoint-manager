@@ -40,7 +40,10 @@ func (h *EnrollmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:  now.Add(15 * time.Minute),
 		CreatedAt:  now,
 	}
-	h.Store.PutEnrollment(e)
+	if err := h.Store.PutEnrollment(e); err != nil {
+		http.Error(w, "state persistence failed", http.StatusInternalServerError)
+		return
+	}
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"enrollment_id": e.ID,
@@ -88,7 +91,10 @@ func (h *EnrollmentHandler) Bootstrap(w http.ResponseWriter, r *http.Request) {
 		CredentialHash:  credentialHash,
 		StargateVersion: asString(req["version"]),
 	}
-	h.Store.PutEndpoint(ep)
+	if err := h.Store.PutEndpoint(ep); err != nil {
+		writeError(w, http.StatusInternalServerError, "STATE_PERSISTENCE_FAILED")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"endpoint_id":                consumed.EndpointID,
