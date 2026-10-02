@@ -1,47 +1,89 @@
 # Endpoint Protocol v1
 
-First stable contract between Stargate Endpoint Manager and a Stargate UI endpoint.
+Stable server-to-server contract between **Stargate Endpoint Manager** and **Stargate Endpoint**.
 
 ## Principles
 
-1. TLS is mandatory.
+1. TLS is mandatory in production.
 2. Browser session cookies are never used.
 3. Every endpoint has a unique identity.
-4. Every write is idempotent or has an explicit operation ID.
-5. Requests are scoped to exactly one endpoint.
-6. Responses report observed state, not only command acceptance.
-7. Safe unknown fields are ignored for minor-version interoperability.
+4. Enrollment credentials are short-lived and one-time.
+5. After enrollment, the endpoint uses a dedicated credential.
+6. Every write is idempotent or has an explicit operation ID.
+7. Requests are scoped to exactly one endpoint.
+8. Responses report observed state, not only command acceptance.
+9. Safe unknown fields are ignored for minor-version interoperability.
 
-## Request envelope
+## Bootstrap
 
-    protocol_version
-    request_id
+Manager endpoint:
+
+    POST /api/v1/enrollment/bootstrap
+
+Request:
+
+    enrollment_id
+    token
+    name
+    region
+    country
+    city
+    version
+
+The enrollment token is high-entropy, expires after a short period, and can be consumed only once.
+
+On success the Manager returns:
+
     endpoint_id
-    operation
-    sent_at
-    payload
-
-## Response envelope
-
+    endpoint_credential
     protocol_version
-    request_id
-    operation_id
-    accepted
-    status
-    observed_at
-    result or error
+    heartbeat_interval_seconds
 
-## Enrollment
+The endpoint credential is returned only during bootstrap. The Manager stores only its SHA-256 hash.
 
-Manager creates enrollment_id, endpoint_id, expiry and a high-entropy one-time token. After successful enrollment the token is invalidated and the endpoint receives permanent credentials and heartbeat settings.
+## Endpoint authentication
+
+Authenticated Endpoint requests use:
+
+    Authorization: Bearer <endpoint_credential>
+
+The enrollment token must never be reused for heartbeat or operational APIs.
+
+An invalid or missing endpoint credential returns:
+
+    ENDPOINT_AUTH_INVALID
 
 ## Heartbeat
 
-Heartbeat reports Stargate version, protocol version, uptime, CPU, memory, disk, load, capabilities and active sessions.
+Endpoint:
+
+    POST /api/v1/endpoint/heartbeat
+
+The request includes:
+
+    endpoint_id
+    version
+    capabilities
+    cpu_percent
+    memory_percent
+    disk_percent
+    active_sessions
+
+The Manager records the latest observed state and marks the endpoint online.
+
+The current heartbeat interval is 30 seconds.
 
 ## Capability identifiers
 
-Examples: protocol.xray.anytls, protocol.xray.tuic5, protocol.xray.naiveproxy, protocol.wireguard, protocol.amneziawg, feature.real_ip_ssl, feature.telegram_automation.
+Examples:
+
+    protocol.xray.anytls
+    protocol.xray.tuic5
+    protocol.xray.naiveproxy
+    protocol.wireguard
+    protocol.amneziawg
+    feature.real_ip_ssl
+    feature.telegram_automation
 
 Operations must be gated by capabilities instead of assuming every endpoint is identical.
 
@@ -66,7 +108,7 @@ Operations must be gated by capabilities instead of assuming every endpoint is i
 
 ## Stable error codes
 
-AUTH_REQUIRED, AUTH_INVALID, ENDPOINT_NOT_FOUND, UNSUPPORTED_CAPABILITY, VALIDATION_FAILED, RESOURCE_NOT_FOUND, CONFLICT, RATE_LIMITED, INTERNAL_ERROR, TEMPORARY_UNAVAILABLE.
+AUTH_REQUIRED, AUTH_INVALID, ENDPOINT_AUTH_INVALID, ENDPOINT_NOT_FOUND, UNSUPPORTED_CAPABILITY, VALIDATION_FAILED, RESOURCE_NOT_FOUND, CONFLICT, RATE_LIMITED, INTERNAL_ERROR, TEMPORARY_UNAVAILABLE, STATE_PERSISTENCE_FAILED.
 
 Human-readable messages are supplemental and must not be used for program logic.
 
