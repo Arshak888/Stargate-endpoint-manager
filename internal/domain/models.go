@@ -21,6 +21,7 @@ type Endpoint struct {
 	Status            EndpointStatus
 	StargateVersion   string
 	ProtocolVersion   int
+	CredentialHash    string
 	LastSeenAt        *time.Time
 	Capabilities      []string
 	CPUPercent        float64
@@ -47,7 +48,7 @@ type AccountMembership struct {
 	DesiredVersion int64
 	ObservedState  string
 	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	UpdatedAt      time.Time
 }
 
 type Enrollment struct {
