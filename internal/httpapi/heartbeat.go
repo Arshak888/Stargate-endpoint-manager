@@ -1,0 +1,5 @@
+package httpapi
+
+import ("encoding/json"; "net/http"; "time"; "github.com/Arshak888/Stargate-endpoint-manager/internal/domain"; "github.com/Arshak888/Stargate-endpoint-manager/internal/store")
+type HeartbeatHandler struct { Store *store.MemoryStore }
+func (h *HeartbeatHandler) Receive(w http.ResponseWriter,r *http.Request) { var req map[string]interface{}; if json.NewDecoder(r.Body).Decode(&req)!=nil { writeError(w,400,"VALIDATION_FAILED"); return }; id,_:=req["endpoint_id"].(string); ep,ok:=h.Store.GetEndpoint(id); if !ok { writeError(w,404,"ENDPOINT_NOT_FOUND"); return }; now:=time.Now().UTC(); ep.Status=domain.EndpointOnline; ep.LastSeenAt=&now; if v,ok:=req["version"].(string); ok { ep.StargateVersion=v }; if v,ok:=req["capabilities"].([]interface{}); ok { ep.Capabilities=nil; for _,x:=range v { if s,ok:=x.(string); ok { ep.Capabilities=append(ep.Capabilities,s) } } }; h.Store.PutEndpoint(ep); writeJSON(w,200,map[string]interface{}{"status":"ok","observed_at":now,"heartbeat_interval_seconds":30}) }
