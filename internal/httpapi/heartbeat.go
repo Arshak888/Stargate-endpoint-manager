@@ -62,7 +62,10 @@ func (h *HeartbeatHandler) Receive(w http.ResponseWriter, r *http.Request) {
 		ep.ActiveSessions = int(v)
 	}
 
-	h.Store.PutEndpoint(ep)
+	if err := h.Store.PutEndpoint(ep); err != nil {
+		writeError(w, http.StatusInternalServerError, "STATE_PERSISTENCE_FAILED")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":                     "ok",
 		"observed_at":                now,
